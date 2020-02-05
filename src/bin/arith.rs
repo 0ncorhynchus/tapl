@@ -32,7 +32,7 @@ fn main() -> io::Result<()> {
                 Ok(parsed) => {
                     println!("parsed:    {:?}", parsed);
                     println!("evaluated: {:?}", eval(*parsed));
-                },
+                }
                 Err(err) => {
                     eprintln!("{:?}", err);
                 }

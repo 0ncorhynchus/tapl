@@ -11,22 +11,24 @@ pub enum Term {
     IsZero(Box<Term>),
 }
 
-pub fn is_numeric_val(t: &Term) -> bool {
-    match t {
-        Term::Zero => true,
-        Term::Succ(prev) => is_numeric_val(prev),
-        _ => false,
+impl Term {
+    pub fn is_numeric_val(&self) -> bool {
+        match self {
+            Term::Zero => true,
+            Term::Succ(prev) => prev.is_numeric_val(),
+            _ => false,
+        }
     }
-}
 
-pub fn is_val(t: &Term) -> bool {
-    if is_numeric_val(t) {
-        return true;
-    }
-    match t {
-        Term::True => true,
-        Term::False => true,
-        _ => false,
+    pub fn is_val(&self) -> bool {
+        if self.is_numeric_val() {
+            return true;
+        }
+        match self {
+            Term::True => true,
+            Term::False => true,
+            _ => false,
+        }
     }
 }
 
@@ -46,7 +48,7 @@ pub fn eval1(t: Term) -> Option<Term> {
         Term::IsZero(t) => match *t {
             Term::Zero => Some(Term::True),
             _ => {
-                if is_numeric_val(&t) {
+                if t.is_numeric_val() {
                     Some(Term::False)
                 } else {
                     Some(Term::IsZero(Box::new(eval1(*t)?)))
@@ -72,36 +74,36 @@ mod tests {
 
     #[test]
     fn test_is_numeric_val() {
-        assert_eq!(is_numeric_val(&Term::Zero), true);
-        assert_eq!(is_numeric_val(&Term::True), false);
-        assert_eq!(is_numeric_val(&Term::False), false);
+        assert_eq!(Term::Zero.is_numeric_val(), true);
+        assert_eq!(Term::True.is_numeric_val(), false);
+        assert_eq!(Term::False.is_numeric_val(), false);
         assert_eq!(
-            is_numeric_val(&Term::If(
+            Term::If(
                 Box::new(Term::True),
                 Box::new(Term::Zero),
                 Box::new(Term::Succ(Box::new(Term::Zero)))
-            )),
+            ).is_numeric_val(),
             false
         );
-        assert_eq!(is_numeric_val(&Term::Succ(Box::new(Term::Zero))), true);
-        assert_eq!(is_numeric_val(&Term::Succ(Box::new(Term::True))), false);
+        assert_eq!(Term::Succ(Box::new(Term::Zero)).is_numeric_val(), true);
+        assert_eq!(Term::Succ(Box::new(Term::True)).is_numeric_val(), false);
     }
 
     #[test]
     fn test_is_val() {
-        assert_eq!(is_val(&Term::Zero), true);
-        assert_eq!(is_val(&Term::True), true);
-        assert_eq!(is_val(&Term::False), true);
+        assert_eq!(Term::Zero.is_val(), true);
+        assert_eq!(Term::True.is_val(), true);
+        assert_eq!(Term::False.is_val(), true);
         assert_eq!(
-            is_val(&Term::If(
+            Term::If(
                 Box::new(Term::True),
                 Box::new(Term::Zero),
                 Box::new(Term::Succ(Box::new(Term::Zero)))
-            )),
+            ).is_val(),
             false
         );
-        assert_eq!(is_val(&Term::Succ(Box::new(Term::Zero))), true);
-        assert_eq!(is_val(&Term::Succ(Box::new(Term::True))), false);
+        assert_eq!(Term::Succ(Box::new(Term::Zero)).is_val(), true);
+        assert_eq!(Term::Succ(Box::new(Term::True)).is_val(), false);
     }
 
     #[test]

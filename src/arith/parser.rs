@@ -1,6 +1,6 @@
+use super::*;
 use std::fmt;
 use std::str::FromStr;
-use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Token {
@@ -228,4 +228,3 @@ where
         }
     }
 }
-

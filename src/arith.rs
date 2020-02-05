@@ -1,5 +1,5 @@
-mod term;
 mod parser;
+mod term;
 
-pub use term::*;
 pub use parser::*;
+pub use term::*;
