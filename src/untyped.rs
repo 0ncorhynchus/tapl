@@ -35,6 +35,29 @@ impl Term {
         }
     }
 
+    pub fn subst(&mut self, j: Index, s: &Term) {
+        self.subst_(0, j, s);
+    }
+
+    fn subst_(&mut self, c: Index, j: Index, s: &Term) {
+        match self {
+            Term::Var(x, _n) => {
+                if *x == j + c {
+                    *self = s.clone();
+                    self.shift(c);
+                }
+            }
+            Term::Abs(_x, t1) => {
+                t1.subst_(c + 1, j, s);
+            }
+            Term::App(t1, t2) => {
+                t1.subst_(c, j, s);
+                t2.subst_(c, j, s);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +120,33 @@ mod tests {
                     )),
                 )),
             )
+        );
+    }
+
+    #[test]
+    fn test_subst_var() {
+        let mut t = Term::Var(0, 1);
+        t.subst(0, &Term::Var(1, 1));
+        assert_eq!(t, Term::Var(1, 1));
+
+        t.subst(0, &Term::Var(0, 1));
+        assert_eq!(t, Term::Var(1, 1));
+    }
+
+    #[test]
+    fn test_subst_abs() {
+        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(2, 3)));
+        t.subst(1, &Term::Var(2, 2));
+        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(3, 3))));
+    }
+
+    #[test]
+    fn test_subst_app() {
+        let mut t = Term::App(Box::new(Term::Var(0, 2)), Box::new(Term::Var(1, 2)));
+        t.subst(0, &Term::Var(2, 2));
+        assert_eq!(
+            t,
+            Term::App(Box::new(Term::Var(2, 2)), Box::new(Term::Var(1, 2)))
         );
     }
 }
