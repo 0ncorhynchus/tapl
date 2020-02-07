@@ -1,4 +1,5 @@
 pub mod arith;
+pub mod untyped;
 
 #[cfg(test)]
 mod tests {
