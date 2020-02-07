@@ -110,15 +110,15 @@ fn main() -> io::Result<()> {
     let zz = term!((pair c0) c0);
     let ss = term!(lambda p ((pair (snd 0)) ((plus c1) (snd 0))));
     let pred = term!(lambda m (fst ((0 ss) zz)));
-    env.register("zz", zz.clone());
-    env.register("ss", ss.clone());
+    env.register("zz", zz);
+    env.register("ss", ss);
     env.register("pred", pred.clone());
 
     let equal = term!(lambda m (lambda n ((and (iszro ((0 pred) 1))) (iszro ((1 pred) 0)))));
-    env.register("equal", equal.clone());
+    env.register("equal", equal);
 
     let fix = term!(lambda f ((lambda x (1 (lambda y ((1 1) 0)))) (lambda x (1 (lambda y ((1 1) 0))))));
-    env.register("fix", fix.clone());
+    env.register("fix", fix);
 
     loop {
         print!("> ");
