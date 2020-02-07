@@ -137,18 +137,17 @@ where
             match self.parse_next() {
                 Ok(next) => {
                     current = Box::new(Term::App(current, next));
-                }
-                Err(err) => {
-                    if let ParserError::UnexpectedEOF = err {
+                    if self.last_token == Some(Token::CloseParenthesis) {
                         break;
-                    } else {
-                        return Err(err);
                     }
                 }
+                Err(err) => {
+                    if err == ParserError::UnexpectedEOF {
+                        break;
+                    }
+                    return Err(err);
+                }
             }
-        }
-        while let Ok(next) = self.parse_next() {
-            current = Box::new(Term::App(current, next));
         }
         Ok(current)
     }
@@ -156,7 +155,7 @@ where
     fn parse_next(&mut self) -> Result<Box<Term>, ParserError> {
         let token = self.get_next_token()?;
         match token {
-            Token::Lambda => Ok(Box::new(Term::Abs("".to_string(), self.parse_next()?))),
+            Token::Lambda => Ok(Box::new(Term::Abs("".to_string(), self.parse()?))),
             Token::Var(index) => Ok(Box::new(Term::Var(index, 0))),
             Token::OpenParenthesis => self.parse_until_close(),
             _ => Err(ParserError::UnexpectedToken(token)),
@@ -246,40 +245,7 @@ mod tests {
 
     #[test]
     fn test_parser() {
-        let tokens = vec![Token::Lambda, Token::Var(0)];
-        let mut parser = Parser::new(tokens.into_iter());
-        assert_eq!(
-            parser.parse(),
-            Ok(Box::new(Term::Abs(
-                "".to_string(),
-                Box::new(Term::Var(0, 0))
-            )))
-        );
-        assert_eq!(parser.parse(), Err(ParserError::UnexpectedEOF));
-    }
-
-    #[test]
-    fn test_parser_app() {
-        let tokens = vec![Token::Lambda, Token::Var(0), Token::Var(0)];
-        let mut parser = Parser::new(tokens.into_iter());
-        assert_eq!(
-            parser.parse(),
-            Ok(Box::new(Term::App(
-                Box::new(Term::Abs("".to_string(), Box::new(Term::Var(0, 0)))),
-                Box::new(Term::Var(0, 0))
-            )))
-        );
-    }
-
-    #[test]
-    fn test_parser_parenthesis() {
-        let tokens = vec![
-            Token::Lambda,
-            Token::OpenParenthesis,
-            Token::Var(0),
-            Token::Var(0),
-            Token::CloseParenthesis,
-        ];
+        let tokens = vec![Token::Lambda, Token::Var(0), Token::Var(1)];
         let mut parser = Parser::new(tokens.into_iter());
         assert_eq!(
             parser.parse(),
@@ -287,8 +253,50 @@ mod tests {
                 "".to_string(),
                 Box::new(Term::App(
                     Box::new(Term::Var(0, 0)),
-                    Box::new(Term::Var(0, 0))
+                    Box::new(Term::Var(1, 0))
                 ))
+            )))
+        );
+    }
+
+    #[test]
+    fn test_parser_concat() {
+        let tokens = vec![Token::Var(0), Token::Var(1), Token::Var(2)];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::App(
+                Box::new(Term::App(
+                    Box::new(Term::Var(0, 0)),
+                    Box::new(Term::Var(1, 0))
+                )),
+                Box::new(Term::Var(2, 0))
+            )))
+        );
+    }
+
+    #[test]
+    fn test_parser_parenthesis() {
+        let tokens = vec![
+            Token::OpenParenthesis,
+            Token::Lambda,
+            Token::Var(0),
+            Token::Var(1),
+            Token::CloseParenthesis,
+            Token::Var(0),
+        ];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::App(
+                Box::new(Term::Abs(
+                    "".to_string(),
+                    Box::new(Term::App(
+                        Box::new(Term::Var(0, 0)),
+                        Box::new(Term::Var(1, 0))
+                    ))
+                )),
+                Box::new(Term::Var(0, 0))
             )))
         );
     }
