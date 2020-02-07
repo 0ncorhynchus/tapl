@@ -146,7 +146,7 @@ where
         let token = self.get_next_token()?;
         match token {
             Token::Lambda => Ok(Box::new(Term::Abs("".to_string(), self.parse()?))),
-            Token::Var(index) => Ok(Box::new(Term::Var(index, 0))),
+            Token::Var(index) => Ok(Box::new(Term::Var(index))),
             Token::OpenParenthesis => self.parse_until_close(),
             _ => Err(ParserError::UnexpectedToken(token)),
         }
@@ -169,21 +169,6 @@ where
         let next_token = self.next_token;
         self.next_token = self.iter.next();
         next_token.ok_or(ParserError::UnexpectedEOF)
-    }
-}
-
-impl<I> Iterator for Parser<I>
-where
-    I: Iterator<Item = Token>,
-{
-    type Item = Result<Box<Term>, ParserError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.next_token.is_none() {
-            None
-        } else {
-            Some(self.parse())
-        }
     }
 }
 
@@ -235,10 +220,7 @@ mod tests {
             parser.parse(),
             Ok(Box::new(Term::Abs(
                 "".to_string(),
-                Box::new(Term::App(
-                    Box::new(Term::Var(0, 0)),
-                    Box::new(Term::Var(1, 0))
-                ))
+                Box::new(Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1))))
             )))
         );
     }
@@ -250,11 +232,8 @@ mod tests {
         assert_eq!(
             parser.parse(),
             Ok(Box::new(Term::App(
-                Box::new(Term::App(
-                    Box::new(Term::Var(0, 0)),
-                    Box::new(Term::Var(1, 0))
-                )),
-                Box::new(Term::Var(2, 0))
+                Box::new(Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1)))),
+                Box::new(Term::Var(2))
             )))
         );
     }
@@ -275,12 +254,9 @@ mod tests {
             Ok(Box::new(Term::App(
                 Box::new(Term::Abs(
                     "".to_string(),
-                    Box::new(Term::App(
-                        Box::new(Term::Var(0, 0)),
-                        Box::new(Term::Var(1, 0))
-                    ))
+                    Box::new(Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1))))
                 )),
-                Box::new(Term::Var(0, 0))
+                Box::new(Term::Var(0))
             )))
         );
     }
@@ -293,7 +269,7 @@ mod tests {
             Token::CloseParenthesis,
         ];
         let mut parser = Parser::new(tokens.into_iter());
-        assert_eq!(parser.parse(), Ok(Box::new(Term::Var(0, 0))));
+        assert_eq!(parser.parse(), Ok(Box::new(Term::Var(0))));
 
         let tokens = vec![
             Token::OpenParenthesis,
@@ -304,10 +280,7 @@ mod tests {
         let mut parser = Parser::new(tokens.into_iter());
         assert_eq!(
             parser.parse(),
-            Ok(Box::new(Term::Abs(
-                "".to_string(),
-                Box::new(Term::Var(0, 0))
-            )))
+            Ok(Box::new(Term::Abs("".to_string(), Box::new(Term::Var(0)))))
         );
     }
 }

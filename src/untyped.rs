@@ -8,7 +8,7 @@ type Index = i32;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
-    Var(Index, Index),
+    Var(Index),
     Abs(String, Box<Self>),
     App(Box<Self>, Box<Self>),
 }
@@ -20,11 +20,10 @@ impl Term {
 
     fn shift_(&mut self, c: Index, d: Index) {
         match self {
-            Self::Var(x, n) => {
+            Self::Var(x) => {
                 if *x >= c {
                     *x += d;
                 }
-                *n += d;
             }
             Self::Abs(_x, t2) => {
                 t2.shift_(c + 1, d);
@@ -42,7 +41,7 @@ impl Term {
 
     fn subst_(&mut self, c: Index, j: Index, s: &Term) {
         match self {
-            Term::Var(x, _n) => {
+            Term::Var(x) => {
                 if *x == j + c {
                     *self = s.clone();
                     self.shift(c);
@@ -94,18 +93,18 @@ impl Term {
     }
 
     pub fn eval(self) -> Self {
-        if let Some(t) = self.clone().eval1() {
-            t.eval()
-        } else {
-            self
+        let mut current = self;
+        while let Some(t) = current.clone().eval1() {
+            current = t;
         }
+        current
     }
 }
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Var(x, _n) => write!(f, "{}", x),
+            Self::Var(x) => write!(f, "{}", x),
             Self::Abs(_name, t) => write!(f, "(λ. {})", t),
             Self::App(t1, t2) => write!(f, "({} {})", t1, t2),
         }
@@ -118,83 +117,74 @@ mod tests {
 
     #[test]
     fn test_shift_var() {
-        let mut t = Term::Var(2, 2);
+        let mut t = Term::Var(2);
         t.shift(0);
-        assert_eq!(t, Term::Var(2, 2));
+        assert_eq!(t, Term::Var(2));
         t.shift(1);
-        assert_eq!(t, Term::Var(3, 3));
+        assert_eq!(t, Term::Var(3));
     }
 
     #[test]
     fn test_shift_abs() {
-        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(0, 1)));
+        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(0)));
         t.shift(0);
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0, 1))));
+        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0))));
         t.shift(1);
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0, 2))));
+        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0))));
     }
 
     #[test]
     fn test_shift_app() {
-        let mut t = Term::App(Box::new(Term::Var(0, 0)), Box::new(Term::Var(0, 0)));
+        let mut t = Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(0)));
         t.shift(0);
-        assert_eq!(
-            t,
-            Term::App(Box::new(Term::Var(0, 0)), Box::new(Term::Var(0, 0)))
-        );
+        assert_eq!(t, Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(0))));
         t.shift(1);
-        assert_eq!(
-            t,
-            Term::App(Box::new(Term::Var(1, 1)), Box::new(Term::Var(1, 1)))
-        );
+        assert_eq!(t, Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(1))));
     }
 
     #[test]
     fn test_subst_var() {
-        let mut t = Term::Var(0, 1);
-        t.subst(0, &Term::Var(1, 1));
-        assert_eq!(t, Term::Var(1, 1));
+        let mut t = Term::Var(0);
+        t.subst(0, &Term::Var(1));
+        assert_eq!(t, Term::Var(1));
 
-        t.subst(0, &Term::Var(0, 1));
-        assert_eq!(t, Term::Var(1, 1));
+        t.subst(0, &Term::Var(0));
+        assert_eq!(t, Term::Var(1));
     }
 
     #[test]
     fn test_subst_abs() {
-        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(2, 3)));
-        t.subst(1, &Term::Var(2, 2));
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(3, 3))));
+        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(2)));
+        t.subst(1, &Term::Var(2));
+        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(3))));
     }
 
     #[test]
     fn test_subst_app() {
-        let mut t = Term::App(Box::new(Term::Var(0, 2)), Box::new(Term::Var(1, 2)));
-        t.subst(0, &Term::Var(2, 2));
-        assert_eq!(
-            t,
-            Term::App(Box::new(Term::Var(2, 2)), Box::new(Term::Var(1, 2)))
-        );
+        let mut t = Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1)));
+        t.subst(0, &Term::Var(2));
+        assert_eq!(t, Term::App(Box::new(Term::Var(2)), Box::new(Term::Var(1))));
     }
 
     #[test]
     fn test_eval() {
-        assert_eq!(Term::Var(0, 0).eval(), Term::Var(0, 0));
+        assert_eq!(Term::Var(0).eval(), Term::Var(0));
 
-        let t = Term::App(Box::new(Term::Var(1, 0)), Box::new(Term::Var(1, 1)));
+        let t = Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(1)));
         assert_eq!(t.clone(), t.eval());
 
-        let abs = Term::Abs("".to_string(), Box::new(Term::Var(0, 0)));
+        let abs = Term::Abs("".to_string(), Box::new(Term::Var(0)));
         assert_eq!(abs.clone().eval(), abs);
 
         let app = Term::App(Box::new(abs.clone()), Box::new(abs.clone()));
         assert_eq!(app.eval(), abs);
 
-        let app = Term::App(Box::new(abs), Box::new(Term::Var(0, 0)));
+        let app = Term::App(Box::new(abs), Box::new(Term::Var(0)));
         assert_eq!(app.clone().eval(), app);
 
-        let f = Term::Abs("".to_string(), Box::new(Term::Var(1, 1)));
-        let val = Term::Abs("".to_string(), Box::new(Term::Var(0, 2)));
+        let f = Term::Abs("".to_string(), Box::new(Term::Var(1)));
+        let val = Term::Abs("".to_string(), Box::new(Term::Var(0)));
         let app = Term::App(Box::new(f), Box::new(val));
-        assert_eq!(app.eval(), Term::Var(0, 0));
+        assert_eq!(app.eval(), Term::Var(0));
     }
 }
