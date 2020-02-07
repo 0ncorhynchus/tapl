@@ -134,20 +134,10 @@ where
     pub fn parse(&mut self) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next()?;
         loop {
-            if self.last_token == Some(Token::CloseParenthesis) {
+            if self.last_token == Some(Token::CloseParenthesis) || self.last_token.is_none() {
                 break;
             }
-            match self.parse_next() {
-                Ok(next) => {
-                    current = Box::new(Term::App(current, next));
-                }
-                Err(err) => {
-                    if err == ParserError::UnexpectedEOF {
-                        break;
-                    }
-                    return Err(err);
-                }
-            }
+            current = Box::new(Term::App(current, self.parse_next()?));
         }
         Ok(current)
     }
@@ -165,18 +155,12 @@ where
     fn parse_until_close(&mut self) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next()?;
         loop {
-            match self.parse_next() {
-                Ok(next) => {
-                    current = Box::new(Term::App(current, next));
-                }
-                Err(err) => {
-                    if let ParserError::UnexpectedToken(Token::CloseParenthesis) = err {
-                        break;
-                    } else {
-                        return Err(err);
-                    }
-                }
+            if self.last_token == Some(Token::CloseParenthesis) {
+                // consume ')'
+                self.last_token = self.iter.next();
+                break;
             }
+            current = Box::new(Term::App(current, self.parse_next()?));
         }
         Ok(current)
     }
@@ -303,6 +287,14 @@ mod tests {
 
     #[test]
     fn test_parser_simple_parenthesis() {
+        let tokens = vec![
+            Token::OpenParenthesis,
+            Token::Var(0),
+            Token::CloseParenthesis,
+        ];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(parser.parse(), Ok(Box::new(Term::Var(0, 0))));
+
         let tokens = vec![
             Token::OpenParenthesis,
             Token::Lambda,
