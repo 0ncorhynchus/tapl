@@ -114,11 +114,19 @@ impl fmt::Display for Term {
 
 #[derive(Debug)]
 pub enum Context<'a> {
-    Empty,
+    Primitives(Vec<(String, Term)>),
     Cons(&'a Self, String),
 }
 
 impl<'a> Context<'a> {
+    pub fn new(primitives: Vec<(String, Term)>) -> Context<'static> {
+        Context::Primitives(primitives)
+    }
+
+    pub fn empty() -> Context<'static> {
+        Context::Primitives(vec![])
+    }
+
     pub fn add(&self, name: String) -> Context {
         Context::Cons(self, name)
     }
@@ -129,7 +137,11 @@ impl<'a> Context<'a> {
 
     pub fn find_(&self, name: &str, idx: Index) -> Option<Index> {
         match self {
-            Self::Empty => None,
+            Self::Primitives(primitives) => primitives
+                .iter()
+                .enumerate()
+                .find(|(_i, (n, _t))| n.as_str() == name)
+                .map(|(i, _)| (i as Index) + idx),
             Self::Cons(ctx, n) => {
                 if n == name {
                     Some(idx)
@@ -142,7 +154,7 @@ impl<'a> Context<'a> {
 
     pub fn get_name(&self, index: Index) -> Option<String> {
         match self {
-            Self::Empty => None,
+            Self::Primitives(primitives) => primitives.get(index as usize).map(|(n, _t)| n.clone()),
             Self::Cons(ctx, name) => {
                 if index == 0 {
                     Some(name.clone())
