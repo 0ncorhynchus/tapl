@@ -63,19 +63,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_shift() {
+    fn test_shift_var() {
         let mut t = Term::Var(2, 2);
         t.shift(0);
         assert_eq!(t, Term::Var(2, 2));
         t.shift(1);
         assert_eq!(t, Term::Var(3, 3));
+    }
 
+    #[test]
+    fn test_shift_abs() {
         let mut t = Term::Abs("".to_string(), Box::new(Term::Var(0, 1)));
         t.shift(0);
         assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0, 1))));
         t.shift(1);
         assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0, 2))));
+    }
 
+    #[test]
+    fn test_shift_app() {
         let mut t = Term::App(Box::new(Term::Var(0, 0)), Box::new(Term::Var(0, 0)));
         t.shift(0);
         assert_eq!(
@@ -86,40 +92,6 @@ mod tests {
         assert_eq!(
             t,
             Term::App(Box::new(Term::Var(1, 1)), Box::new(Term::Var(1, 1)))
-        );
-    }
-
-    #[test]
-    fn test_shift_example() {
-        let mut t = Term::Abs(
-            "".to_string(),
-            Box::new(Term::Abs(
-                "".to_string(),
-                Box::new(Term::App(
-                    Box::new(Term::Var(1, 2)),
-                    Box::new(Term::App(
-                        Box::new(Term::Var(0, 2)),
-                        Box::new(Term::Var(2, 2)),
-                    )),
-                )),
-            )),
-        );
-        t.shift(2);
-        assert_eq!(
-            t,
-            Term::Abs(
-                "".to_string(),
-                Box::new(Term::Abs(
-                    "".to_string(),
-                    Box::new(Term::App(
-                        Box::new(Term::Var(1, 4)),
-                        Box::new(Term::App(
-                            Box::new(Term::Var(0, 4)),
-                            Box::new(Term::Var(4, 4)),
-                        )),
-                    )),
-                )),
-            )
         );
     }
 
