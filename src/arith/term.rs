@@ -82,7 +82,8 @@ mod tests {
                 Box::new(Term::True),
                 Box::new(Term::Zero),
                 Box::new(Term::Succ(Box::new(Term::Zero)))
-            ).is_numeric_val(),
+            )
+            .is_numeric_val(),
             false
         );
         assert_eq!(Term::Succ(Box::new(Term::Zero)).is_numeric_val(), true);
@@ -99,7 +100,8 @@ mod tests {
                 Box::new(Term::True),
                 Box::new(Term::Zero),
                 Box::new(Term::Succ(Box::new(Term::Zero)))
-            ).is_val(),
+            )
+            .is_val(),
             false
         );
         assert_eq!(Term::Succ(Box::new(Term::Zero)).is_val(), true);
