@@ -1,3 +1,4 @@
+use super::Term;
 use std::num::ParseIntError;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -109,6 +110,100 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ParserError {
+    UnexpectedToken(Token),
+    UnexpectedEOF,
+}
+
+pub struct Parser<I> {
+    iter: I,
+    last_token: Option<Token>,
+}
+
+impl<I> Parser<I>
+where
+    I: Iterator<Item = Token>,
+{
+    pub fn new(iter: I) -> Self {
+        let mut iter = iter;
+        let last_token = iter.next();
+        Self { iter, last_token }
+    }
+
+    pub fn parse(&mut self) -> Result<Box<Term>, ParserError> {
+        let mut current = self.parse_next()?;
+        loop {
+            match self.parse_next() {
+                Ok(next) => {
+                    current = Box::new(Term::App(current, next));
+                }
+                Err(err) => {
+                    if let ParserError::UnexpectedEOF = err {
+                        break;
+                    } else {
+                        return Err(err);
+                    }
+                }
+            }
+        }
+        while let Ok(next) = self.parse_next() {
+            current = Box::new(Term::App(current, next));
+        }
+        Ok(current)
+    }
+
+    fn parse_next(&mut self) -> Result<Box<Term>, ParserError> {
+        let token = self.get_next_token()?;
+        match token {
+            Token::Lambda => Ok(Box::new(Term::Abs("".to_string(), self.parse_next()?))),
+            Token::Var(index) => Ok(Box::new(Term::Var(index, 0))),
+            Token::OpenParenthesis => self.parse_until_close(),
+            _ => Err(ParserError::UnexpectedToken(token)),
+        }
+    }
+
+    fn parse_until_close(&mut self) -> Result<Box<Term>, ParserError> {
+        let mut current = self.parse_next()?;
+        loop {
+            match self.parse_next() {
+                Ok(next) => {
+                    current = Box::new(Term::App(current, next));
+                }
+                Err(err) => {
+                    if let ParserError::UnexpectedToken(Token::CloseParenthesis) = err {
+                        break;
+                    } else {
+                        return Err(err);
+                    }
+                }
+            }
+        }
+        Ok(current)
+    }
+
+    fn get_next_token(&mut self) -> Result<Token, ParserError> {
+        let next_token = self.last_token;
+        self.last_token = self.iter.next();
+        next_token.ok_or(ParserError::UnexpectedEOF)
+    }
+}
+
+impl<I> Iterator for Parser<I>
+where
+    I: Iterator<Item = Token>,
+{
+    type Item = Result<Box<Term>, ParserError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_token.is_none() {
+            None
+        } else {
+            Some(self.parse())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +234,62 @@ mod tests {
         assert_eq!(tokenizer.next(), Some(Ok(Token::Var(2))));
         assert_eq!(tokenizer.next(), Some(Ok(Token::CloseParenthesis)));
         assert_eq!(tokenizer.next(), None);
+    }
+
+    #[test]
+    fn test_parser_eof_error() {
+        let tokens = vec![Token::Lambda];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(parser.parse(), Err(ParserError::UnexpectedEOF));
+        assert_eq!(parser.parse(), Err(ParserError::UnexpectedEOF));
+    }
+
+    #[test]
+    fn test_parser() {
+        let tokens = vec![Token::Lambda, Token::Var(0)];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::Abs(
+                "".to_string(),
+                Box::new(Term::Var(0, 0))
+            )))
+        );
+        assert_eq!(parser.parse(), Err(ParserError::UnexpectedEOF));
+    }
+
+    #[test]
+    fn test_parser_app() {
+        let tokens = vec![Token::Lambda, Token::Var(0), Token::Var(0)];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::App(
+                Box::new(Term::Abs("".to_string(), Box::new(Term::Var(0, 0)))),
+                Box::new(Term::Var(0, 0))
+            )))
+        );
+    }
+
+    #[test]
+    fn test_parser_parenthesis() {
+        let tokens = vec![
+            Token::Lambda,
+            Token::OpenParenthesis,
+            Token::Var(0),
+            Token::Var(0),
+            Token::CloseParenthesis,
+        ];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::Abs(
+                "".to_string(),
+                Box::new(Term::App(
+                    Box::new(Term::Var(0, 0)),
+                    Box::new(Term::Var(0, 0))
+                ))
+            )))
+        );
     }
 }
