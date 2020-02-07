@@ -118,7 +118,7 @@ pub enum ParserError {
 
 pub struct Parser<I> {
     iter: I,
-    last_token: Option<Token>,
+    next_token: Option<Token>,
 }
 
 impl<I> Parser<I>
@@ -127,14 +127,14 @@ where
 {
     pub fn new(iter: I) -> Self {
         let mut iter = iter;
-        let last_token = iter.next();
-        Self { iter, last_token }
+        let next_token = iter.next();
+        Self { iter, next_token }
     }
 
     pub fn parse(&mut self) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next()?;
         loop {
-            if self.last_token == Some(Token::CloseParenthesis) || self.last_token.is_none() {
+            if self.next_token == Some(Token::CloseParenthesis) || self.next_token.is_none() {
                 break;
             }
             current = Box::new(Term::App(current, self.parse_next()?));
@@ -155,9 +155,9 @@ where
     fn parse_until_close(&mut self) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next()?;
         loop {
-            if self.last_token == Some(Token::CloseParenthesis) {
+            if self.next_token == Some(Token::CloseParenthesis) {
                 // consume ')'
-                self.last_token = self.iter.next();
+                self.next_token = self.iter.next();
                 break;
             }
             current = Box::new(Term::App(current, self.parse_next()?));
@@ -166,8 +166,8 @@ where
     }
 
     fn get_next_token(&mut self) -> Result<Token, ParserError> {
-        let next_token = self.last_token;
-        self.last_token = self.iter.next();
+        let next_token = self.next_token;
+        self.next_token = self.iter.next();
         next_token.ok_or(ParserError::UnexpectedEOF)
     }
 }
@@ -179,7 +179,7 @@ where
     type Item = Result<Box<Term>, ParserError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.last_token.is_none() {
+        if self.next_token.is_none() {
             None
         } else {
             Some(self.parse())
