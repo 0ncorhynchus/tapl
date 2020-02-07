@@ -35,6 +35,7 @@ fn main() -> io::Result<()> {
                 }
                 Err(err) => {
                     eprintln!("{:?}", err);
+                    break;
                 }
             }
         }
