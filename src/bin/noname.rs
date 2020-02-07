@@ -9,9 +9,13 @@ fn main() -> io::Result<()> {
 
         let mut buffer = String::new();
         io::stdin().read_line(&mut buffer)?;
+        let buffer = buffer.trim();
 
-        if buffer.trim() == "quit" {
+        if buffer == "quit" {
             break;
+        }
+        if buffer.is_empty() {
+            continue;
         }
 
         let tokenizer = noname::Tokenizer::new(buffer.chars());
@@ -27,7 +31,7 @@ fn main() -> io::Result<()> {
         let mut parser = noname::Parser::new(tokens.into_iter());
         match parser.parse() {
             Ok(term) => {
-                println!("{:?}", term);
+                println!("{}", term);
             }
             Err(err) => {
                 eprintln!("{:?}", err);

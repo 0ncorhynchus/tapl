@@ -1,6 +1,7 @@
 pub mod noname;
 
 use std::boxed::Box;
+use std::fmt;
 
 // de Bruijn index
 type Index = usize;
@@ -54,6 +55,16 @@ impl Term {
                 t1.subst_(c, j, s);
                 t2.subst_(c, j, s);
             }
+        }
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Var(x, _n) => write!(f, "{}", x),
+            Self::Abs(_name, t) => write!(f, "(λ. {})", t),
+            Self::App(t1, t2) => write!(f, "({} {})", t1, t2),
         }
     }
 }
