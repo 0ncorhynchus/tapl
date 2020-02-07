@@ -4,7 +4,7 @@ use std::boxed::Box;
 use std::fmt;
 
 // de Bruijn index
-type Index = usize;
+type Index = i32;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
@@ -55,6 +55,49 @@ impl Term {
                 t1.subst_(c, j, s);
                 t2.subst_(c, j, s);
             }
+        }
+    }
+
+    pub fn subst_top(&mut self, s: Term) {
+        let mut s = s;
+        s.shift(1);
+        self.subst(0, &s);
+        self.shift(-1);
+    }
+
+    pub fn is_val(&self) -> bool {
+        match self {
+            Self::Abs(_, _) => true,
+            _ => false,
+        }
+    }
+
+    fn eval1(self) -> Option<Self> {
+        if let Self::App(t1, t2) = self {
+            match *t1 {
+                Self::Abs(x, mut t12) => {
+                    if t2.is_val() {
+                        t12.subst_top(*t2);
+                        return Some(*t12);
+                    } else {
+                        Some(Term::App(
+                            Box::new(Self::Abs(x, t12)),
+                            Box::new(t2.eval1()?),
+                        ))
+                    }
+                }
+                _ => Some(Term::App(Box::new(t1.eval1()?), t2)),
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn eval(self) -> Self {
+        if let Some(t) = self.clone().eval1() {
+            t.eval()
+        } else {
+            self
         }
     }
 }
@@ -131,5 +174,27 @@ mod tests {
             t,
             Term::App(Box::new(Term::Var(2, 2)), Box::new(Term::Var(1, 2)))
         );
+    }
+
+    #[test]
+    fn test_eval() {
+        assert_eq!(Term::Var(0, 0).eval(), Term::Var(0, 0));
+
+        let t = Term::App(Box::new(Term::Var(1, 0)), Box::new(Term::Var(1, 1)));
+        assert_eq!(t.clone(), t.eval());
+
+        let abs = Term::Abs("".to_string(), Box::new(Term::Var(0, 0)));
+        assert_eq!(abs.clone().eval(), abs);
+
+        let app = Term::App(Box::new(abs.clone()), Box::new(abs.clone()));
+        assert_eq!(app.eval(), abs);
+
+        let app = Term::App(Box::new(abs), Box::new(Term::Var(0, 0)));
+        assert_eq!(app.clone().eval(), app);
+
+        let f = Term::Abs("".to_string(), Box::new(Term::Var(1, 1)));
+        let val = Term::Abs("".to_string(), Box::new(Term::Var(0, 2)));
+        let app = Term::App(Box::new(f), Box::new(val));
+        assert_eq!(app.eval(), Term::Var(0, 0));
     }
 }

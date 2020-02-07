@@ -1,10 +1,10 @@
-use super::Term;
+use super::{Index, Term};
 use std::num::ParseIntError;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Token {
     Lambda,
-    Var(usize),
+    Var(Index),
     OpenParenthesis,
     CloseParenthesis,
 }

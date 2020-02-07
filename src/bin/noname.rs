@@ -31,7 +31,8 @@ fn main() -> io::Result<()> {
         let mut parser = noname::Parser::new(tokens.into_iter());
         match parser.parse() {
             Ok(term) => {
-                println!("{}", term);
+                println!("Input:  {}", term);
+                println!("Output: {}", term.eval());
             }
             Err(err) => {
                 eprintln!("{:?}", err);
