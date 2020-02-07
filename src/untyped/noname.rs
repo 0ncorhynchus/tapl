@@ -134,12 +134,12 @@ where
     pub fn parse(&mut self) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next()?;
         loop {
+            if self.last_token == Some(Token::CloseParenthesis) {
+                break;
+            }
             match self.parse_next() {
                 Ok(next) => {
                     current = Box::new(Term::App(current, next));
-                    if self.last_token == Some(Token::CloseParenthesis) {
-                        break;
-                    }
                 }
                 Err(err) => {
                     if err == ParserError::UnexpectedEOF {
@@ -296,6 +296,24 @@ mod tests {
                         Box::new(Term::Var(1, 0))
                     ))
                 )),
+                Box::new(Term::Var(0, 0))
+            )))
+        );
+    }
+
+    #[test]
+    fn test_parser_simple_parenthesis() {
+        let tokens = vec![
+            Token::OpenParenthesis,
+            Token::Lambda,
+            Token::Var(0),
+            Token::CloseParenthesis,
+        ];
+        let mut parser = Parser::new(tokens.into_iter());
+        assert_eq!(
+            parser.parse(),
+            Ok(Box::new(Term::Abs(
+                "".to_string(),
                 Box::new(Term::Var(0, 0))
             )))
         );
