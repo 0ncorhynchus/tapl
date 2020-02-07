@@ -1,4 +1,5 @@
 pub mod noname;
+pub mod parser;
 
 use std::boxed::Box;
 use std::fmt;
@@ -107,6 +108,48 @@ impl fmt::Display for Term {
             Self::Var(x) => write!(f, "{}", x),
             Self::Abs(_name, t) => write!(f, "(λ. {})", t),
             Self::App(t1, t2) => write!(f, "({} {})", t1, t2),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Context<'a> {
+    Empty,
+    Cons(&'a Self, String),
+}
+
+impl<'a> Context<'a> {
+    pub fn add(&self, name: String) -> Context {
+        Context::Cons(self, name)
+    }
+
+    pub fn find(&self, name: &str) -> Option<Index> {
+        self.find_(name, 0)
+    }
+
+    pub fn find_(&self, name: &str, idx: Index) -> Option<Index> {
+        match self {
+            Self::Empty => None,
+            Self::Cons(ctx, n) => {
+                if n == name {
+                    Some(idx)
+                } else {
+                    ctx.find_(name, idx + 1)
+                }
+            }
+        }
+    }
+
+    pub fn get_name(&self, index: Index) -> Option<String> {
+        match self {
+            Self::Empty => None,
+            Self::Cons(ctx, name) => {
+                if index == 0 {
+                    Some(name.clone())
+                } else {
+                    ctx.get_name(index - 1)
+                }
+            }
         }
     }
 }
