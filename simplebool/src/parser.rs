@@ -7,12 +7,16 @@ pub enum Token {
     OpenParenthesis,
     CloseParenthesis,
     Dot,
+    Colon,
+    Arrow,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
     InvalidInitial(char),
     EOF,
+    ExpectedGT(char),
+    UnexpectedEOF,
 }
 
 pub struct Tokenizer<I> {
@@ -51,6 +55,19 @@ where
                 '\\' => {
                     self.read_char();
                     Ok(Token::Lambda)
+                }
+                ':' => {
+                    self.read_char();
+                    Ok(Token::Colon)
+                }
+                '-' => {
+                    let c = self.read_char().ok_or(TokenizerError::UnexpectedEOF)?;
+                    if c == '>' {
+                        self.read_char();
+                        Ok(Token::Arrow)
+                    } else {
+                        Err(TokenizerError::ExpectedGT(c))
+                    }
                 }
                 _ => {
                     if c.is_ascii_alphabetic() {
