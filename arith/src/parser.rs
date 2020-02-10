@@ -1,4 +1,4 @@
-use super::*;
+use crate::term::*;
 use std::fmt;
 use std::str::FromStr;
 

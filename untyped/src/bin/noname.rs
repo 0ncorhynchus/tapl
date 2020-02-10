@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use tapl::untyped::*;
+use untyped::*;
 
 fn main() -> io::Result<()> {
     loop {

@@ -1,5 +1,9 @@
+mod parser;
+mod term;
+
+use crate::parser::*;
+use crate::term::*;
 use std::io::{self, Write};
-use tapl::arith::*;
 
 fn main() -> io::Result<()> {
     loop {

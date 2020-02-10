@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
-use tapl::untyped::*;
+use untyped::*;
 
 fn print(term: &Term, ctx: &Context) -> String {
     match term {
