@@ -117,7 +117,8 @@ fn main() -> io::Result<()> {
     let equal = term!(lambda m (lambda n ((and (iszro ((0 pred) 1))) (iszro ((1 pred) 0)))));
     env.register("equal", equal);
 
-    let fix = term!(lambda f ((lambda x (1 (lambda y ((1 1) 0)))) (lambda x (1 (lambda y ((1 1) 0))))));
+    let fix =
+        term!(lambda f ((lambda x (1 (lambda y ((1 1) 0)))) (lambda x (1 (lambda y ((1 1) 0))))));
     env.register("fix", fix);
 
     loop {

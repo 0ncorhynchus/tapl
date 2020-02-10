@@ -163,7 +163,10 @@ where
             Token::Lambda => {
                 if let Token::Identifier(ident) = self.get_next_token()? {
                     if self.get_next_token()? == Token::Dot {
-                        Ok(Box::new(Term::Abs(ident.clone(), self.parse(&ctx.add(ident))?)))
+                        Ok(Box::new(Term::Abs(
+                            ident.clone(),
+                            self.parse(&ctx.add(ident))?,
+                        )))
                     } else {
                         Err(ParserError::ExpectedDot)
                     }
@@ -212,15 +215,30 @@ mod tests {
         let line = r"\x. \y. x (y z)";
         let mut tokenizer = Tokenizer::new(line.chars());
         assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("x".to_string())));
+        assert_eq!(
+            tokenizer.get_token(),
+            Ok(Token::Identifier("x".to_string()))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
         assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("y".to_string())));
+        assert_eq!(
+            tokenizer.get_token(),
+            Ok(Token::Identifier("y".to_string()))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("x".to_string())));
+        assert_eq!(
+            tokenizer.get_token(),
+            Ok(Token::Identifier("x".to_string()))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::OpenParenthesis));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("y".to_string())));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("z".to_string())));
+        assert_eq!(
+            tokenizer.get_token(),
+            Ok(Token::Identifier("y".to_string()))
+        );
+        assert_eq!(
+            tokenizer.get_token(),
+            Ok(Token::Identifier("z".to_string()))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::CloseParenthesis));
         assert_eq!(tokenizer.get_token(), Err(TokenizerError::EOF));
     }
@@ -230,22 +248,41 @@ mod tests {
         let line = r"\x. \y. x (y z)";
         let mut tokenizer = Tokenizer::new(line.chars());
         assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("x".to_string()))));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::Identifier("x".to_string())))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
         assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("y".to_string()))));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::Identifier("y".to_string())))
+        );
         assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("x".to_string()))));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::Identifier("x".to_string())))
+        );
         assert_eq!(tokenizer.next(), Some(Ok(Token::OpenParenthesis)));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("y".to_string()))));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("z".to_string()))));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::Identifier("y".to_string())))
+        );
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::Identifier("z".to_string())))
+        );
         assert_eq!(tokenizer.next(), Some(Ok(Token::CloseParenthesis)));
         assert_eq!(tokenizer.next(), None);
     }
 
     #[test]
     fn test_parser_eof_error() {
-        let tokens = vec![Token::Lambda, Token::Identifier("x".to_string()), Token::Dot];
+        let tokens = vec![
+            Token::Lambda,
+            Token::Identifier("x".to_string()),
+            Token::Dot,
+        ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
         assert_eq!(parser.parse(&empty), Err(ParserError::UnexpectedEOF));
