@@ -12,7 +12,6 @@ pub enum Token {
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
     InvalidInitial(char),
-    UnexpectedEOF,
     EOF,
 }
 
@@ -53,7 +52,13 @@ where
                     self.read_char();
                     Ok(Token::Lambda)
                 }
-                _ => Ok(Token::Identifier(self.read_identifier()?)),
+                _ => {
+                    if c.is_ascii_alphabetic() {
+                        Ok(Token::Identifier(self.read_ascii_alphanumerics(c)))
+                    } else {
+                        Err(TokenizerError::InvalidInitial(c))
+                    }
+                }
             }
         } else {
             Err(TokenizerError::EOF)
@@ -78,19 +83,6 @@ where
             if !c.is_whitespace() {
                 break;
             }
-        }
-    }
-
-    fn read_identifier(&mut self) -> Result<String, TokenizerError> {
-        self.skip_whitespaces();
-        if let Some(c) = self.last_char {
-            if c.is_ascii_alphabetic() {
-                Ok(self.read_ascii_alphanumerics(c))
-            } else {
-                Err(TokenizerError::InvalidInitial(c))
-            }
-        } else {
-            Err(TokenizerError::UnexpectedEOF)
         }
     }
 
