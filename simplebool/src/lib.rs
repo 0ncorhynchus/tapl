@@ -6,10 +6,19 @@ use std::fmt;
 // de Bruijn index
 type Index = i32;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Type;
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Unit")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
     Var(Index),
-    Abs(String, Box<Self>),
+    Abs(String, Type, Box<Self>),
     App(Box<Self>, Box<Self>),
 }
 
@@ -25,7 +34,7 @@ impl Term {
                     *x += d;
                 }
             }
-            Self::Abs(_x, t2) => {
+            Self::Abs(_x, _ty, t2) => {
                 t2.shift_(c + 1, d);
             }
             Self::App(t1, t2) => {
@@ -47,7 +56,7 @@ impl Term {
                     self.shift(c);
                 }
             }
-            Term::Abs(_x, t1) => {
+            Term::Abs(_x, _ty, t1) => {
                 t1.subst_(c + 1, j, s);
             }
             Term::App(t1, t2) => {
@@ -66,7 +75,7 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
-            Self::Abs(_, _) => true,
+            Self::Abs(_, _, _) => true,
             _ => false,
         }
     }
@@ -74,13 +83,13 @@ impl Term {
     fn eval1(self) -> Option<Self> {
         if let Self::App(t1, t2) = self {
             match *t1 {
-                Self::Abs(x, mut t12) => {
+                Self::Abs(x, ty, mut t12) => {
                     if t2.is_val() {
                         t12.subst_top(*t2);
                         return Some(*t12);
                     } else {
                         Some(Term::App(
-                            Box::new(Self::Abs(x, t12)),
+                            Box::new(Self::Abs(x, ty, t12)),
                             Box::new(t2.eval1()?),
                         ))
                     }
@@ -105,7 +114,7 @@ impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Var(x) => write!(f, "{}", x),
-            Self::Abs(_name, t) => write!(f, "(λ. {})", t),
+            Self::Abs(_name, _ty, t) => write!(f, "(λ. {})", t),
             Self::App(t1, t2) => write!(f, "({} {})", t1, t2),
         }
     }
@@ -180,11 +189,11 @@ mod tests {
 
     #[test]
     fn test_shift_abs() {
-        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(0)));
+        let mut t = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
         t.shift(0);
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0))));
+        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(0))));
         t.shift(1);
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(0))));
+        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(0))));
     }
 
     #[test]
@@ -208,9 +217,9 @@ mod tests {
 
     #[test]
     fn test_subst_abs() {
-        let mut t = Term::Abs("".to_string(), Box::new(Term::Var(2)));
+        let mut t = Term::Abs("".to_string(), Type, Box::new(Term::Var(2)));
         t.subst(1, &Term::Var(2));
-        assert_eq!(t, Term::Abs("".to_string(), Box::new(Term::Var(3))));
+        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(3))));
     }
 
     #[test]
@@ -227,7 +236,7 @@ mod tests {
         let t = Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(1)));
         assert_eq!(t.clone(), t.eval());
 
-        let abs = Term::Abs("".to_string(), Box::new(Term::Var(0)));
+        let abs = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
         assert_eq!(abs.clone().eval(), abs);
 
         let app = Term::App(Box::new(abs.clone()), Box::new(abs.clone()));
@@ -236,8 +245,8 @@ mod tests {
         let app = Term::App(Box::new(abs), Box::new(Term::Var(0)));
         assert_eq!(app.clone().eval(), app);
 
-        let f = Term::Abs("".to_string(), Box::new(Term::Var(1)));
-        let val = Term::Abs("".to_string(), Box::new(Term::Var(0)));
+        let f = Term::Abs("".to_string(), Type, Box::new(Term::Var(1)));
+        let val = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
         let app = Term::App(Box::new(f), Box::new(val));
         assert_eq!(app.eval(), Term::Var(0));
     }

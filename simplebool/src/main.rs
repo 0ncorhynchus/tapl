@@ -5,7 +5,7 @@ use std::io::{self, Write};
 fn print(term: &Term, ctx: &Context) -> String {
     match term {
         Term::Var(idx) => ctx.get_name(*idx).expect("Invalid Index"),
-        Term::Abs(name, t) => format!("λ{}. {}", name, print(t, &ctx.add(name.clone()))),
+        Term::Abs(name, ty, t) => format!("λ{}:{}. {}", name, ty, print(t, &ctx.add(name.clone()))),
         Term::App(t1, t2) => format!("({} {})", print(t1, ctx), print(t2, ctx),),
     }
 }
@@ -39,7 +39,7 @@ impl Environment {
                 let mut term = term;
                 for (name, value) in &self.primitives {
                     term = Box::new(Term::App(
-                        Box::new(Term::Abs(name.clone(), term)),
+                        Box::new(Term::Abs(name.clone(), Type, term)),
                         Box::new(value.clone()),
                     ))
                 }
@@ -54,7 +54,7 @@ impl Environment {
 
 macro_rules! term {
     (lambda $name:ident ( $( $body:tt )* )) => {
-        Term::Abs(stringify!($name).to_string(), Box::new(term!($($body)*)))
+        Term::Abs(stringify!($name).to_string(), Type, Box::new(term!($($body)*)))
     };
     ($t1:tt $t2:tt) => {
         Term::App(Box::new(term!($t1)), Box::new(term!($t2)))

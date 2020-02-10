@@ -1,4 +1,4 @@
-use super::{Context, Term};
+use super::{Context, Term, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
@@ -174,6 +174,7 @@ where
                     if self.get_next_token()? == Token::Dot {
                         Ok(Box::new(Term::Abs(
                             ident.clone(),
+                            Type,
                             self.parse(&ctx.add(ident))?,
                         )))
                     } else {
@@ -325,6 +326,7 @@ mod tests {
             parser.parse(&ctx),
             Ok(Box::new(Term::Abs(
                 "x".to_string(),
+                (),
                 Box::new(Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1))))
             )))
         );
@@ -371,6 +373,7 @@ mod tests {
             Ok(Box::new(Term::App(
                 Box::new(Term::Abs(
                     "x".to_string(),
+                    (),
                     Box::new(Term::App(Box::new(Term::Var(0)), Box::new(Term::Var(1))))
                 )),
                 Box::new(Term::Var(0))
@@ -402,7 +405,11 @@ mod tests {
         let empty = Context::empty();
         assert_eq!(
             parser.parse(&empty),
-            Ok(Box::new(Term::Abs("x".to_string(), Box::new(Term::Var(0)))))
+            Ok(Box::new(Term::Abs(
+                "x".to_string(),
+                (),
+                Box::new(Term::Var(0))
+            )))
         );
     }
 }
