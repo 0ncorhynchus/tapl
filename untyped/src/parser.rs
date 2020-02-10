@@ -2,17 +2,17 @@ use super::{Context, Term};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    Lambda(String),
-    Var(String),
+    Lambda,
+    Identifier(String),
     OpenParenthesis,
     CloseParenthesis,
+    Dot,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
     InvalidInitial(char),
     UnexpectedEOF,
-    PeriodAbsence,
     EOF,
 }
 
@@ -45,20 +45,15 @@ where
                     self.read_char();
                     Ok(Token::CloseParenthesis)
                 }
-                '\\' => {
-                    // consume '\'
+                '.' => {
                     self.read_char();
-                    let var = self.read_variable()?;
-                    self.skip_whitespaces();
-                    if self.last_char == Some('.') {
-                        // consume '.'
-                        self.read_char();
-                        Ok(Token::Lambda(var))
-                    } else {
-                        Err(TokenizerError::PeriodAbsence)
-                    }
+                    Ok(Token::Dot)
                 }
-                _ => Ok(Token::Var(self.read_variable()?)),
+                '\\' => {
+                    self.read_char();
+                    Ok(Token::Lambda)
+                }
+                _ => Ok(Token::Identifier(self.read_identifier()?)),
             }
         } else {
             Err(TokenizerError::EOF)
@@ -86,7 +81,7 @@ where
         }
     }
 
-    fn read_variable(&mut self) -> Result<String, TokenizerError> {
+    fn read_identifier(&mut self) -> Result<String, TokenizerError> {
         self.skip_whitespaces();
         if let Some(c) = self.last_char {
             if c.is_ascii_alphabetic() {
@@ -129,6 +124,8 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
+    ExpectedIdentifier,
+    ExpectedDot,
     UnknownVariable(String),
     UnexpectedToken(Token),
     UnexpectedEOF,
@@ -163,8 +160,18 @@ where
     fn parse_next(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
         let token = self.get_next_token()?;
         match token {
-            Token::Lambda(var) => Ok(Box::new(Term::Abs(var.clone(), self.parse(&ctx.add(var))?))),
-            Token::Var(name) => {
+            Token::Lambda => {
+                if let Token::Identifier(ident) = self.get_next_token()? {
+                    if self.get_next_token()? == Token::Dot {
+                        Ok(Box::new(Term::Abs(ident.clone(), self.parse(&ctx.add(ident))?)))
+                    } else {
+                        Err(ParserError::ExpectedDot)
+                    }
+                } else {
+                    Err(ParserError::ExpectedIdentifier)
+                }
+            }
+            Token::Identifier(name) => {
                 if let Some(index) = ctx.find(&name) {
                     Ok(Box::new(Term::Var(index)))
                 } else {
@@ -204,12 +211,16 @@ mod tests {
     fn test_tokenizer() {
         let line = r"\x. \y. x (y z)";
         let mut tokenizer = Tokenizer::new(line.chars());
-        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda("x".to_string())));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda("y".to_string())));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Var("x".to_string())));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("x".to_string())));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("y".to_string())));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("x".to_string())));
         assert_eq!(tokenizer.get_token(), Ok(Token::OpenParenthesis));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Var("y".to_string())));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Var("z".to_string())));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("y".to_string())));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Identifier("z".to_string())));
         assert_eq!(tokenizer.get_token(), Ok(Token::CloseParenthesis));
         assert_eq!(tokenizer.get_token(), Err(TokenizerError::EOF));
     }
@@ -218,19 +229,23 @@ mod tests {
     fn test_tokenizer_iterator() {
         let line = r"\x. \y. x (y z)";
         let mut tokenizer = Tokenizer::new(line.chars());
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Lambda("x".to_string()))));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Lambda("y".to_string()))));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Var("x".to_string()))));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("x".to_string()))));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("y".to_string()))));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("x".to_string()))));
         assert_eq!(tokenizer.next(), Some(Ok(Token::OpenParenthesis)));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Var("y".to_string()))));
-        assert_eq!(tokenizer.next(), Some(Ok(Token::Var("z".to_string()))));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("y".to_string()))));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Identifier("z".to_string()))));
         assert_eq!(tokenizer.next(), Some(Ok(Token::CloseParenthesis)));
         assert_eq!(tokenizer.next(), None);
     }
 
     #[test]
     fn test_parser_eof_error() {
-        let tokens = vec![Token::Lambda("x".to_string())];
+        let tokens = vec![Token::Lambda, Token::Identifier("x".to_string()), Token::Dot];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
         assert_eq!(parser.parse(&empty), Err(ParserError::UnexpectedEOF));
@@ -239,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_parser_unknown_variable() {
-        let tokens = vec![Token::Var("x".to_string())];
+        let tokens = vec![Token::Identifier("x".to_string())];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
         assert_eq!(
@@ -251,9 +266,11 @@ mod tests {
     #[test]
     fn test_parser() {
         let tokens = vec![
-            Token::Lambda("x".to_string()),
-            Token::Var("x".to_string()),
-            Token::Var("y".to_string()),
+            Token::Lambda,
+            Token::Identifier("x".to_string()),
+            Token::Dot,
+            Token::Identifier("x".to_string()),
+            Token::Identifier("y".to_string()),
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
@@ -270,9 +287,9 @@ mod tests {
     #[test]
     fn test_parser_concat() {
         let tokens = vec![
-            Token::Var("x".to_string()),
-            Token::Var("y".to_string()),
-            Token::Var("z".to_string()),
+            Token::Identifier("x".to_string()),
+            Token::Identifier("y".to_string()),
+            Token::Identifier("z".to_string()),
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
@@ -292,11 +309,13 @@ mod tests {
     fn test_parser_parenthesis() {
         let tokens = vec![
             Token::OpenParenthesis,
-            Token::Lambda("x".to_string()),
-            Token::Var("x".to_string()),
-            Token::Var("y".to_string()),
+            Token::Lambda,
+            Token::Identifier("x".to_string()),
+            Token::Dot,
+            Token::Identifier("x".to_string()),
+            Token::Identifier("y".to_string()),
             Token::CloseParenthesis,
-            Token::Var("y".to_string()),
+            Token::Identifier("y".to_string()),
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
@@ -317,7 +336,7 @@ mod tests {
     fn test_parser_simple_parenthesis() {
         let tokens = vec![
             Token::OpenParenthesis,
-            Token::Var("x".to_string()),
+            Token::Identifier("x".to_string()),
             Token::CloseParenthesis,
         ];
         let mut parser = Parser::new(tokens.into_iter());
@@ -327,8 +346,10 @@ mod tests {
 
         let tokens = vec![
             Token::OpenParenthesis,
-            Token::Lambda("x".to_string()),
-            Token::Var("x".to_string()),
+            Token::Lambda,
+            Token::Identifier("x".to_string()),
+            Token::Dot,
+            Token::Identifier("x".to_string()),
             Token::CloseParenthesis,
         ];
         let mut parser = Parser::new(tokens.into_iter());
