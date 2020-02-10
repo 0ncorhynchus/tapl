@@ -6,12 +6,18 @@ use std::fmt;
 // de Bruijn index
 type Index = i32;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Type;
+#[derive(Clone, Debug, PartialEq)]
+pub enum Type {
+    Arrow(Box<Self>, Box<Self>),
+    Bool,
+}
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unit")
+        match self {
+            Self::Bool => write!(f, "Bool"),
+            Self::Arrow(from, to) => write!(f, "{}->{}", from, to),
+        }
     }
 }
 
@@ -189,11 +195,17 @@ mod tests {
 
     #[test]
     fn test_shift_abs() {
-        let mut t = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
+        let mut t = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
         t.shift(0);
-        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(0))));
+        assert_eq!(
+            t,
+            Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)))
+        );
         t.shift(1);
-        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(0))));
+        assert_eq!(
+            t,
+            Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)))
+        );
     }
 
     #[test]
@@ -217,9 +229,12 @@ mod tests {
 
     #[test]
     fn test_subst_abs() {
-        let mut t = Term::Abs("".to_string(), Type, Box::new(Term::Var(2)));
+        let mut t = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(2)));
         t.subst(1, &Term::Var(2));
-        assert_eq!(t, Term::Abs("".to_string(), Type, Box::new(Term::Var(3))));
+        assert_eq!(
+            t,
+            Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(3)))
+        );
     }
 
     #[test]
@@ -236,7 +251,7 @@ mod tests {
         let t = Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(1)));
         assert_eq!(t.clone(), t.eval());
 
-        let abs = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
+        let abs = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
         assert_eq!(abs.clone().eval(), abs);
 
         let app = Term::App(Box::new(abs.clone()), Box::new(abs.clone()));
@@ -245,8 +260,8 @@ mod tests {
         let app = Term::App(Box::new(abs), Box::new(Term::Var(0)));
         assert_eq!(app.clone().eval(), app);
 
-        let f = Term::Abs("".to_string(), Type, Box::new(Term::Var(1)));
-        let val = Term::Abs("".to_string(), Type, Box::new(Term::Var(0)));
+        let f = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(1)));
+        let val = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
         let app = Term::App(Box::new(f), Box::new(val));
         assert_eq!(app.eval(), Term::Var(0));
     }

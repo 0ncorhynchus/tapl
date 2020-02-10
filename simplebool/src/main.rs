@@ -39,7 +39,7 @@ impl Environment {
                 let mut term = term;
                 for (name, value) in &self.primitives {
                     term = Box::new(Term::App(
-                        Box::new(Term::Abs(name.clone(), Type, term)),
+                        Box::new(Term::Abs(name.clone(), Type::Bool, term)),
                         Box::new(value.clone()),
                     ))
                 }
@@ -54,7 +54,7 @@ impl Environment {
 
 macro_rules! term {
     (lambda $name:ident ( $( $body:tt )* )) => {
-        Term::Abs(stringify!($name).to_string(), Type, Box::new(term!($($body)*)))
+        Term::Abs(stringify!($name).to_string(), Type::Bool, Box::new(term!($($body)*)))
     };
     ($t1:tt $t2:tt) => {
         Term::App(Box::new(term!($t1)), Box::new(term!($t2)))
