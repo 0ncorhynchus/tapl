@@ -139,6 +139,15 @@ where
     }
 
     pub fn parse(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
+        let term = self.parse_(ctx)?;
+        if let Some(token) = &self.next_token {
+            Err(ParserError::UnexpectedToken(token.clone()))
+        } else {
+            Ok(term)
+        }
+    }
+
+    fn parse_(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
         let mut current = self.parse_next(&ctx)?;
         loop {
             if self.next_token == Some(Token::CloseParenthesis) || self.next_token.is_none() {
@@ -157,7 +166,7 @@ where
                     if self.get_next_token()? == Token::Dot {
                         Ok(Box::new(Term::Abs(
                             ident.clone(),
-                            self.parse(&ctx.add(ident))?,
+                            self.parse_(&ctx.add(ident))?,
                         )))
                     } else {
                         Err(ParserError::ExpectedDot)
