@@ -20,16 +20,17 @@ impl Term {
         }
     }
 
-    // pub fn is_val(&self) -> bool {
-    //     if self.is_numeric_val() {
-    //         return true;
-    //     }
-    //     match self {
-    //         Term::True => true,
-    //         Term::False => true,
-    //         _ => false,
-    //     }
-    // }
+    #[allow(dead_code)]
+    pub fn is_val(&self) -> bool {
+        if self.is_numeric_val() {
+            return true;
+        }
+        match self {
+            Term::True => true,
+            Term::False => true,
+            _ => false,
+        }
+    }
 }
 
 pub fn eval1(t: Term) -> Option<Term> {
