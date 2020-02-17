@@ -58,7 +58,15 @@ impl Environment {
                         Box::new(value.clone()),
                     ))
                 }
-                println!("{}", print(&term.eval(), &context));
+                let ty = match context.type_of(&term) {
+                    Ok(ty) => ty,
+                    Err(err) => {
+                        eprintln!("{:?}", err);
+                        return;
+                    }
+                };
+
+                println!("{} : {}", print(&term.eval(), &context), ty);
             }
             Err(err) => {
                 eprintln!("{:?}", err);
