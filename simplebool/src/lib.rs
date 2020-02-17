@@ -12,11 +12,26 @@ pub enum Type {
     Bool,
 }
 
+impl Type {
+    fn is_arrow(&self) -> bool {
+        match self {
+            Type::Arrow(_, _) => true,
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Bool => write!(f, "Bool"),
-            Self::Arrow(from, to) => write!(f, "{}->{}", from, to),
+            Self::Arrow(from, to) => {
+                if from.is_arrow() {
+                    write!(f, "({})->{}", from, to)
+                } else {
+                    write!(f, "{}->{}", from, to)
+                }
+            }
         }
     }
 }
@@ -183,6 +198,37 @@ impl<'a> Context<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_type_is_arrow() {
+        assert!(!Type::Bool.is_arrow());
+        assert!(Type::Arrow(Box::new(Type::Bool), Box::new(Type::Bool)).is_arrow());
+    }
+
+    #[test]
+    fn test_type_format() {
+        assert_eq!(Type::Bool.to_string(), "Bool");
+        assert_eq!(
+            Type::Arrow(Box::new(Type::Bool), Box::new(Type::Bool)).to_string(),
+            "Bool->Bool"
+        );
+        assert_eq!(
+            Type::Arrow(
+                Box::new(Type::Bool),
+                Box::new(Type::Arrow(Box::new(Type::Bool), Box::new(Type::Bool)))
+            )
+            .to_string(),
+            "Bool->Bool->Bool"
+        );
+        assert_eq!(
+            Type::Arrow(
+                Box::new(Type::Arrow(Box::new(Type::Bool), Box::new(Type::Bool))),
+                Box::new(Type::Bool)
+            )
+            .to_string(),
+            "(Bool->Bool)->Bool"
+        );
+    }
 
     #[test]
     fn test_shift_var() {
