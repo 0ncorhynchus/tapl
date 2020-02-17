@@ -250,11 +250,9 @@ where
 
         let mut iter = types.into_iter().rev();
         let mut current = iter.next().unwrap();
-        iter.for_each(|ty| {
-            let mut tmp = Type::Bool;
-            std::mem::swap(&mut current, &mut tmp);
-            current = Type::Arrow(Box::new(ty), Box::new(tmp));
-        });
+        for ty in iter {
+            current = Type::Arrow(Box::new(ty), Box::new(current));
+        }
         Ok(current)
     }
 
