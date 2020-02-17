@@ -36,6 +36,15 @@ impl fmt::Display for Type {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum TypeError {
+    UnknownVariable,
+    ExpectedArrowType,
+    MismatchParameterType,
+    MismatchConditionalArmsTypes,
+    ExpectedBoolType,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
     Var(Index),
@@ -218,12 +227,12 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn type_of(&self, term: &Term) -> Option<Type> {
+    pub fn type_of(&self, term: &Term) -> Result<Type, TypeError> {
         match term {
-            Term::Var(idx) => self.get_type(*idx),
+            Term::Var(idx) => self.get_type(*idx).ok_or(TypeError::UnknownVariable),
             Term::Abs(name, ty, body) => {
                 let ctx = self.add(name.clone(), ty.clone());
-                Some(Type::Arrow(
+                Ok(Type::Arrow(
                     Box::new(ty.clone()),
                     Box::new(ctx.type_of(body)?),
                 ))
@@ -233,25 +242,25 @@ impl<'a> Context<'a> {
                 let ty2 = self.type_of(t2)?;
                 if let Type::Arrow(from, to) = ty1 {
                     if *from == ty2 {
-                        Some(*to)
+                        Ok(*to)
                     } else {
-                        None
+                        Err(TypeError::MismatchParameterType)
                     }
                 } else {
-                    None
+                    Err(TypeError::ExpectedArrowType)
                 }
             }
-            Term::True | Term::False => Some(Type::Bool),
+            Term::True | Term::False => Ok(Type::Bool),
             Term::If(cond, jump1, jump2) => {
                 if self.type_of(cond)? == Type::Bool {
                     let ty1 = self.type_of(jump1)?;
                     if ty1 == self.type_of(jump2)? {
-                        Some(ty1)
+                        Ok(ty1)
                     } else {
-                        None
+                        Err(TypeError::MismatchConditionalArmsTypes)
                     }
                 } else {
-                    None
+                    Err(TypeError::ExpectedBoolType)
                 }
             }
         }
