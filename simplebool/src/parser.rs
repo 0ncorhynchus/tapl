@@ -186,8 +186,8 @@ where
 
                     Ok(Box::new(Term::Abs(
                         ident.clone(),
-                        ty,
-                        self.parse_until(&ctx.add(ident), end)?,
+                        ty.clone(),
+                        self.parse_until(&ctx.add(ident, ty), end)?,
                     )))
                 } else {
                     Err(ParserError::ExpectedIdentifier)
@@ -424,7 +424,7 @@ mod tests {
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
-        let ctx = Context::Cons(&empty, "y".to_string());
+        let ctx = Context::Cons(&empty, "y".to_string(), Type::Bool);
         assert_eq!(
             parser.parse(&ctx),
             Ok(Box::new(Term::Abs(
@@ -444,9 +444,9 @@ mod tests {
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
-        let z = Context::Cons(&empty, "z".to_string());
-        let y = Context::Cons(&z, "y".to_string());
-        let x = Context::Cons(&y, "x".to_string());
+        let z = Context::Cons(&empty, "z".to_string(), Type::Bool);
+        let y = Context::Cons(&z, "y".to_string(), Type::Bool);
+        let x = Context::Cons(&y, "x".to_string(), Type::Bool);
         assert_eq!(
             parser.parse(&x),
             Ok(Box::new(Term::App(
@@ -472,7 +472,7 @@ mod tests {
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
-        let ctx = Context::Cons(&empty, "y".to_string());
+        let ctx = Context::Cons(&empty, "y".to_string(), Type::Bool);
         assert_eq!(
             parser.parse(&ctx),
             Ok(Box::new(Term::App(
@@ -495,7 +495,7 @@ mod tests {
         ];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
-        let ctx = Context::Cons(&empty, "x".to_string());
+        let ctx = Context::Cons(&empty, "x".to_string(), Type::Bool);
         assert_eq!(parser.parse(&ctx), Ok(Box::new(Term::Var(0))));
 
         let tokens = vec![
@@ -525,7 +525,7 @@ mod tests {
         let tokens = vec![Token::Identifier("x".to_string()), Token::CloseParenthesis];
         let mut parser = Parser::new(tokens.into_iter());
         let empty = Context::empty();
-        let ctx = Context::Cons(&empty, "x".to_string());
+        let ctx = Context::Cons(&empty, "x".to_string(), Type::Bool);
         assert_eq!(
             parser.parse(&ctx),
             Err(ParserError::UnexpectedToken(Token::CloseParenthesis))

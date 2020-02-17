@@ -165,12 +165,12 @@ impl fmt::Display for Term {
 
 #[derive(Debug)]
 pub enum Context<'a> {
-    Primitives(Vec<(String, Term)>),
-    Cons(&'a Self, String),
+    Primitives(Vec<(String, Type, Term)>),
+    Cons(&'a Self, String, Type),
 }
 
 impl<'a> Context<'a> {
-    pub fn new(primitives: Vec<(String, Term)>) -> Context<'static> {
+    pub fn new(primitives: Vec<(String, Type, Term)>) -> Context<'static> {
         Context::Primitives(primitives)
     }
 
@@ -178,8 +178,8 @@ impl<'a> Context<'a> {
         Context::Primitives(vec![])
     }
 
-    pub fn add(&self, name: String) -> Context {
-        Context::Cons(self, name)
+    pub fn add(&self, name: String, ty: Type) -> Context {
+        Context::Cons(self, name, ty)
     }
 
     pub fn find(&self, name: &str) -> Option<Index> {
@@ -191,9 +191,9 @@ impl<'a> Context<'a> {
             Self::Primitives(primitives) => primitives
                 .iter()
                 .enumerate()
-                .find(|(_i, (n, _t))| n.as_str() == name)
+                .find(|(_i, (n, _ty, _t))| n.as_str() == name)
                 .map(|(i, _)| (i as Index) + idx),
-            Self::Cons(ctx, n) => {
+            Self::Cons(ctx, n, _ty) => {
                 if n == name {
                     Some(idx)
                 } else {
@@ -205,12 +205,68 @@ impl<'a> Context<'a> {
 
     pub fn get_name(&self, index: Index) -> Option<String> {
         match self {
-            Self::Primitives(primitives) => primitives.get(index as usize).map(|(n, _t)| n.clone()),
-            Self::Cons(ctx, name) => {
+            Self::Primitives(primitives) => {
+                primitives.get(index as usize).map(|(n, _ty, _t)| n.clone())
+            }
+            Self::Cons(ctx, name, _ty) => {
                 if index == 0 {
                     Some(name.clone())
                 } else {
                     ctx.get_name(index - 1)
+                }
+            }
+        }
+    }
+
+    pub fn type_of(&self, term: &Term) -> Option<Type> {
+        match term {
+            Term::Var(idx) => self.get_type(*idx),
+            Term::Abs(name, ty, body) => {
+                let ctx = self.add(name.clone(), ty.clone());
+                Some(Type::Arrow(
+                    Box::new(ty.clone()),
+                    Box::new(ctx.type_of(body)?),
+                ))
+            }
+            Term::App(t1, t2) => {
+                let ty1 = self.type_of(t1)?;
+                let ty2 = self.type_of(t2)?;
+                if let Type::Arrow(from, to) = ty1 {
+                    if *from == ty2 {
+                        Some(*to)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            Term::True | Term::False => Some(Type::Bool),
+            Term::If(cond, jump1, jump2) => {
+                if self.type_of(cond)? == Type::Bool {
+                    let ty1 = self.type_of(jump1)?;
+                    if ty1 == self.type_of(jump2)? {
+                        Some(ty1)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn get_type(&self, index: Index) -> Option<Type> {
+        match self {
+            Self::Primitives(primitives) => primitives
+                .get(index as usize)
+                .map(|(_n, ty, _t)| ty.clone()),
+            Self::Cons(ctx, _name, ty) => {
+                if index == 0 {
+                    Some(ty.clone())
+                } else {
+                    ctx.get_type(index - 1)
                 }
             }
         }
