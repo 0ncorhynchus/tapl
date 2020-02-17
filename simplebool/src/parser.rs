@@ -9,6 +9,11 @@ pub enum Token {
     Dot,
     Colon,
     Arrow,
+    True,
+    False,
+    If,
+    Then,
+    Else,
 }
 
 #[derive(Debug, PartialEq)]
@@ -71,7 +76,15 @@ where
                 }
                 _ => {
                     if c.is_ascii_alphabetic() {
-                        Ok(Token::Identifier(self.read_ascii_alphanumerics(c)))
+                        let ident = self.read_ascii_alphanumerics(c);
+                        match ident.as_str() {
+                            "true" => Ok(Token::True),
+                            "false" => Ok(Token::False),
+                            "if" => Ok(Token::If),
+                            "then" => Ok(Token::Then),
+                            "else" => Ok(Token::Else),
+                            _ => Ok(Token::Identifier(ident)),
+                        }
                     } else {
                         Err(TokenizerError::InvalidInitial(c))
                     }
@@ -288,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_tokenizer() {
-        let line = r"\x. \y. x (y z)";
+        let line = r"\x. \y. x (y if true then z else false)";
         let mut tokenizer = Tokenizer::new(line.chars());
         assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
         assert_eq!(
@@ -311,30 +324,35 @@ mod tests {
             tokenizer.get_token(),
             Ok(Token::Identifier("y".to_string()))
         );
+        assert_eq!(tokenizer.get_token(), Ok(Token::If));
+        assert_eq!(tokenizer.get_token(), Ok(Token::True));
+        assert_eq!(tokenizer.get_token(), Ok(Token::Then));
         assert_eq!(
             tokenizer.get_token(),
             Ok(Token::Identifier("z".to_string()))
         );
+        assert_eq!(tokenizer.get_token(), Ok(Token::Else));
+        assert_eq!(tokenizer.get_token(), Ok(Token::False));
         assert_eq!(tokenizer.get_token(), Ok(Token::CloseParenthesis));
         assert_eq!(tokenizer.get_token(), Err(TokenizerError::EOF));
     }
 
     #[test]
     fn test_tokenizer_iterator() {
-        let line = r"\x. \y. x (y z)";
+        let line = r"\x. \y. x (y if true then z else false)";
         let mut tokenizer = Tokenizer::new(line.chars());
-        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Lambda)));
         assert_eq!(
             tokenizer.next(),
             Some(Ok(Token::Identifier("x".to_string())))
         );
-        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
-        assert_eq!(tokenizer.get_token(), Ok(Token::Lambda));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Dot)));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Lambda)));
         assert_eq!(
             tokenizer.next(),
             Some(Ok(Token::Identifier("y".to_string())))
         );
-        assert_eq!(tokenizer.get_token(), Ok(Token::Dot));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Dot)));
         assert_eq!(
             tokenizer.next(),
             Some(Ok(Token::Identifier("x".to_string())))
@@ -344,10 +362,15 @@ mod tests {
             tokenizer.next(),
             Some(Ok(Token::Identifier("y".to_string())))
         );
+        assert_eq!(tokenizer.next(), Some(Ok(Token::If)));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::True)));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Then)));
         assert_eq!(
             tokenizer.next(),
             Some(Ok(Token::Identifier("z".to_string())))
         );
+        assert_eq!(tokenizer.next(), Some(Ok(Token::Else)));
+        assert_eq!(tokenizer.next(), Some(Ok(Token::False)));
         assert_eq!(tokenizer.next(), Some(Ok(Token::CloseParenthesis)));
         assert_eq!(tokenizer.next(), None);
     }
