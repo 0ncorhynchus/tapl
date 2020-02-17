@@ -2,3 +2,4 @@
 - arith
 - noname
 - untyped
+- simplebool
