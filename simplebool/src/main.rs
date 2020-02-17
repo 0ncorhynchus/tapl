@@ -8,6 +8,14 @@ fn print(term: &Term, ctx: &Context) -> String {
         Term::Var(idx) => ctx.get_name(*idx).expect("Invalid Index"),
         Term::Abs(name, ty, t) => format!("λ{}:{}. {}", name, ty, print(t, &ctx.add(name.clone()))),
         Term::App(t1, t2) => format!("({} {})", print(t1, ctx), print(t2, ctx),),
+        Term::True => format!("true"),
+        Term::False => format!("false"),
+        Term::If(cond, jump1, jump2) => format!(
+            "if {} then {} else {}",
+            print(cond, ctx),
+            print(jump1, ctx),
+            print(jump2, ctx),
+        ),
     }
 }
 

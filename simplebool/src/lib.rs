@@ -41,6 +41,9 @@ pub enum Term {
     Var(Index),
     Abs(String, Type, Box<Self>),
     App(Box<Self>, Box<Self>),
+    True,
+    False,
+    If(Box<Self>, Box<Self>, Box<Self>),
 }
 
 impl Term {
@@ -62,6 +65,12 @@ impl Term {
                 t1.shift_(c, d);
                 t2.shift_(c, d);
             }
+            Self::If(cond, jump1, jump2) => {
+                cond.shift_(c, d);
+                jump1.shift_(c, d);
+                jump2.shift_(c, d);
+            }
+            _ => {}
         }
     }
 
@@ -71,19 +80,25 @@ impl Term {
 
     fn subst_(&mut self, c: Index, j: Index, s: &Term) {
         match self {
-            Term::Var(x) => {
+            Self::Var(x) => {
                 if *x == j + c {
                     *self = s.clone();
                     self.shift(c);
                 }
             }
-            Term::Abs(_x, _ty, t1) => {
+            Self::Abs(_x, _ty, t1) => {
                 t1.subst_(c + 1, j, s);
             }
-            Term::App(t1, t2) => {
+            Self::App(t1, t2) => {
                 t1.subst_(c, j, s);
                 t2.subst_(c, j, s);
             }
+            Self::If(cond, jump1, jump2) => {
+                cond.subst_(c, j, s);
+                jump1.subst_(c, j, s);
+                jump2.subst_(c, j, s);
+            }
+            _ => {}
         }
     }
 
@@ -96,14 +111,14 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
-            Self::Abs(_, _, _) => true,
+            Self::Abs(_, _, _) | Self::True | Self::False => true,
             _ => false,
         }
     }
 
     fn eval1(self) -> Option<Self> {
-        if let Self::App(t1, t2) = self {
-            match *t1 {
+        match self {
+            Self::App(t1, t2) => match *t1 {
                 Self::Abs(x, ty, mut t12) => {
                     if t2.is_val() {
                         t12.subst_top(*t2);
@@ -116,9 +131,13 @@ impl Term {
                     }
                 }
                 _ => Some(Term::App(Box::new(t1.eval1()?), t2)),
-            }
-        } else {
-            None
+            },
+            Self::If(cond, jump1, jump2) => match *cond {
+                Term::True => Some(*jump1),
+                Term::False => Some(*jump2),
+                _ => Some(Term::If(Box::new(cond.eval1()?), jump1, jump2)),
+            },
+            _ => None,
         }
     }
 
@@ -137,6 +156,9 @@ impl fmt::Display for Term {
             Self::Var(x) => write!(f, "{}", x),
             Self::Abs(_name, _ty, t) => write!(f, "(λ. {})", t),
             Self::App(t1, t2) => write!(f, "({} {})", t1, t2),
+            Self::True => write!(f, "true"),
+            Self::False => write!(f, "false"),
+            Self::If(cond, jump1, jump2) => write!(f, "if {} then {} else {}", cond, jump1, jump2),
         }
     }
 }
@@ -293,6 +315,8 @@ mod tests {
     #[test]
     fn test_eval() {
         assert_eq!(Term::Var(0).eval(), Term::Var(0));
+        assert_eq!(Term::True.eval(), Term::True);
+        assert_eq!(Term::False.eval(), Term::False);
 
         let t = Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(1)));
         assert_eq!(t.clone(), t.eval());
@@ -310,5 +334,38 @@ mod tests {
         let val = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
         let app = Term::App(Box::new(f), Box::new(val));
         assert_eq!(app.eval(), Term::Var(0));
+    }
+
+    #[test]
+    fn test_eval_if() {
+        let t = Term::If(
+            Box::new(Term::True),
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(1)),
+        );
+        assert_eq!(t.eval(), Term::Var(0));
+
+        let t = Term::If(
+            Box::new(Term::False),
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(1)),
+        );
+        assert_eq!(t.eval(), Term::Var(1));
+
+        let id = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
+        let t = Term::If(
+            Box::new(Term::App(Box::new(id), Box::new(Term::True))),
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(1)),
+        );
+        assert_eq!(t.eval(), Term::Var(0));
+
+        let id = Term::Abs("".to_string(), Type::Bool, Box::new(Term::Var(0)));
+        let t = Term::If(
+            Box::new(Term::App(Box::new(id), Box::new(Term::False))),
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(1)),
+        );
+        assert_eq!(t.eval(), Term::Var(1));
     }
 }
