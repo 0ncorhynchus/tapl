@@ -205,6 +205,16 @@ where
                 assert_eq!(self.get_next_token()?, Token::CloseParenthesis);
                 Ok(term)
             }
+            Token::True => Ok(Box::new(Term::True)),
+            Token::False => Ok(Box::new(Term::False)),
+            Token::If => {
+                let cond = self.parse_until(&ctx, &Some(Token::Then))?;
+                assert_eq!(self.get_next_token()?, Token::Then);
+                let jump1 = self.parse_until(&ctx, &Some(Token::Else))?;
+                assert_eq!(self.get_next_token()?, Token::Else);
+                let jump2 = self.parse_until(&ctx, end)?;
+                Ok(Box::new(Term::If(cond, jump1, jump2)))
+            }
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -519,6 +529,37 @@ mod tests {
         assert_eq!(
             parser.parse(&ctx),
             Err(ParserError::UnexpectedToken(Token::CloseParenthesis))
+        );
+    }
+
+    #[test]
+    fn test_parser_if() {
+        let tokens = vec![
+            Token::Lambda,
+            Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Identifier("Bool".to_string()),
+            Token::Dot,
+            Token::If,
+            Token::Identifier("x".to_string()),
+            Token::Then,
+            Token::False,
+            Token::Else,
+            Token::True,
+        ];
+        let mut parser = Parser::new(tokens.into_iter());
+        let empty = Context::empty();
+        assert_eq!(
+            parser.parse(&empty),
+            Ok(Box::new(Term::Abs(
+                "x".to_string(),
+                Type::Bool,
+                Box::new(Term::If(
+                    Box::new(Term::Var(0)),
+                    Box::new(Term::False),
+                    Box::new(Term::True)
+                ))
+            )))
         );
     }
 }
