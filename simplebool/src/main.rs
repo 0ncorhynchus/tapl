@@ -1,4 +1,5 @@
-use simplebool::*;
+use simplebool::parser::{Parser, Token, Tokenizer};
+use simplebool::{Context, Term, Type};
 use std::collections::HashMap;
 use std::io::{self, Write};
 
@@ -25,7 +26,7 @@ impl Environment {
         self.primitives.insert(name.to_string(), value);
     }
 
-    fn eval_and_print(&self, tokens: Vec<parser::Token>) {
+    fn eval_and_print(&self, tokens: Vec<Token>) {
         let context = Context::new(
             self.primitives
                 .iter()
@@ -33,7 +34,7 @@ impl Environment {
                 .collect(),
         );
 
-        let mut parser = parser::Parser::new(tokens.into_iter());
+        let mut parser = Parser::new(tokens.into_iter());
         match parser.parse(&context) {
             Ok(term) => {
                 let mut term = term;
@@ -137,7 +138,7 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        let tokenizer = parser::Tokenizer::new(buffer.chars());
+        let tokenizer = Tokenizer::new(buffer.chars());
         let tokens: Result<Vec<_>, _> = tokenizer.collect();
         let tokens = match tokens {
             Ok(tokens) => tokens,
