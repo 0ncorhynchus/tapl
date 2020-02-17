@@ -135,6 +135,9 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 pub enum ParserError {
     ExpectedIdentifier,
     ExpectedDot,
+    ExpectedColon,
+    ExpectedCloseParenthesis,
+    UnknownType(String),
     UnknownVariable(String),
     UnexpectedToken(Token),
     UnexpectedEOF,
@@ -171,15 +174,17 @@ where
         match token {
             Token::Lambda => {
                 if let Token::Identifier(ident) = self.get_next_token()? {
-                    if self.get_next_token()? == Token::Dot {
-                        Ok(Box::new(Term::Abs(
-                            ident.clone(),
-                            Type::Bool,
-                            self.parse(&ctx.add(ident))?,
-                        )))
-                    } else {
-                        Err(ParserError::ExpectedDot)
+                    if self.get_next_token()? != Token::Colon {
+                        return Err(ParserError::ExpectedColon);
                     }
+
+                    let ty = self.parse_type(ctx, false)?;
+
+                    Ok(Box::new(Term::Abs(
+                        ident.clone(),
+                        ty,
+                        self.parse(&ctx.add(ident))?,
+                    )))
                 } else {
                     Err(ParserError::ExpectedIdentifier)
                 }
@@ -193,6 +198,59 @@ where
             }
             Token::OpenParenthesis => self.parse_until_close(&ctx),
             _ => Err(ParserError::UnexpectedToken(token)),
+        }
+    }
+
+    fn parse_type(&mut self, ctx: &Context, is_in_paren: bool) -> Result<Type, ParserError> {
+        let mut types = vec![self.parse_simple_type(ctx)?];
+        loop {
+            match self.get_next_token()? {
+                Token::Arrow => {
+                    types.push(self.parse_simple_type(ctx)?);
+                }
+                Token::Dot => {
+                    if is_in_paren {
+                        return Err(ParserError::ExpectedCloseParenthesis);
+                    }
+                    break;
+                }
+                Token::CloseParenthesis => {
+                    if !is_in_paren {
+                        return Err(ParserError::ExpectedDot);
+                    }
+                    break;
+                }
+                _ => {
+                    if is_in_paren {
+                        return Err(ParserError::ExpectedCloseParenthesis);
+                    } else {
+                        return Err(ParserError::ExpectedDot);
+                    }
+                }
+            }
+        }
+
+        let mut iter = types.into_iter().rev();
+        let mut current = iter.next().unwrap();
+        iter.for_each(|ty| {
+            let mut tmp = Type::Bool;
+            std::mem::swap(&mut current, &mut tmp);
+            current = Type::Arrow(Box::new(ty), Box::new(tmp));
+        });
+        Ok(current)
+    }
+
+    fn parse_simple_type(&mut self, ctx: &Context) -> Result<Type, ParserError> {
+        match self.get_next_token()? {
+            Token::Identifier(name) => {
+                if name != "Bool" {
+                    Err(ParserError::UnknownType(name))
+                } else {
+                    Ok(Type::Bool)
+                }
+            }
+            Token::OpenParenthesis => self.parse_type(ctx, true),
+            _ => Err(ParserError::ExpectedIdentifier),
         }
     }
 
@@ -291,6 +349,8 @@ mod tests {
         let tokens = vec![
             Token::Lambda,
             Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Identifier("Bool".to_string()),
             Token::Dot,
         ];
         let mut parser = Parser::new(tokens.into_iter());
@@ -315,6 +375,8 @@ mod tests {
         let tokens = vec![
             Token::Lambda,
             Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Identifier("Bool".to_string()),
             Token::Dot,
             Token::Identifier("x".to_string()),
             Token::Identifier("y".to_string()),
@@ -359,6 +421,8 @@ mod tests {
             Token::OpenParenthesis,
             Token::Lambda,
             Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Identifier("Bool".to_string()),
             Token::Dot,
             Token::Identifier("x".to_string()),
             Token::Identifier("y".to_string()),
@@ -397,6 +461,8 @@ mod tests {
             Token::OpenParenthesis,
             Token::Lambda,
             Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Identifier("Bool".to_string()),
             Token::Dot,
             Token::Identifier("x".to_string()),
             Token::CloseParenthesis,
