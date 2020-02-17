@@ -133,10 +133,8 @@ impl<I: Iterator<Item = char>> Iterator for Tokenizer<I> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
+    Expected(Token),
     ExpectedIdentifier,
-    ExpectedDot,
-    ExpectedColon,
-    ExpectedCloseParenthesis,
     UnknownType(String),
     UnknownVariable(String),
     UnexpectedToken(Token),
@@ -159,23 +157,16 @@ where
     }
 
     pub fn parse(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
-        let mut current = self.parse_next(&ctx)?;
-        loop {
-            if self.next_token == Some(Token::CloseParenthesis) || self.next_token.is_none() {
-                break;
-            }
-            current = Box::new(Term::App(current, self.parse_next(&ctx)?));
-        }
-        Ok(current)
+        self.parse_until(ctx, &None)
     }
 
-    fn parse_next(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
+    fn parse_next(&mut self, ctx: &Context, end: &Option<Token>) -> Result<Box<Term>, ParserError> {
         let token = self.get_next_token()?;
         match token {
             Token::Lambda => {
                 if let Token::Identifier(ident) = self.get_next_token()? {
                     if self.get_next_token()? != Token::Colon {
-                        return Err(ParserError::ExpectedColon);
+                        return Err(ParserError::Expected(Token::Colon));
                     }
 
                     let ty = self.parse_type(ctx, false)?;
@@ -183,7 +174,7 @@ where
                     Ok(Box::new(Term::Abs(
                         ident.clone(),
                         ty,
-                        self.parse(&ctx.add(ident))?,
+                        self.parse_until(&ctx.add(ident), end)?,
                     )))
                 } else {
                     Err(ParserError::ExpectedIdentifier)
@@ -196,7 +187,11 @@ where
                     Err(ParserError::UnknownVariable(name))
                 }
             }
-            Token::OpenParenthesis => self.parse_until_close(&ctx),
+            Token::OpenParenthesis => {
+                let term = self.parse_until(&ctx, &Some(Token::CloseParenthesis))?;
+                assert_eq!(self.get_next_token()?, Token::CloseParenthesis);
+                Ok(term)
+            }
             _ => Err(ParserError::UnexpectedToken(token)),
         }
     }
@@ -210,21 +205,21 @@ where
                 }
                 Token::Dot => {
                     if is_in_paren {
-                        return Err(ParserError::ExpectedCloseParenthesis);
+                        return Err(ParserError::Expected(Token::CloseParenthesis));
                     }
                     break;
                 }
                 Token::CloseParenthesis => {
                     if !is_in_paren {
-                        return Err(ParserError::ExpectedDot);
+                        return Err(ParserError::Expected(Token::Dot));
                     }
                     break;
                 }
                 _ => {
                     if is_in_paren {
-                        return Err(ParserError::ExpectedCloseParenthesis);
+                        return Err(ParserError::Expected(Token::CloseParenthesis));
                     } else {
-                        return Err(ParserError::ExpectedDot);
+                        return Err(ParserError::Expected(Token::Dot));
                     }
                 }
             }
@@ -254,17 +249,30 @@ where
         }
     }
 
-    fn parse_until_close(&mut self, ctx: &Context) -> Result<Box<Term>, ParserError> {
-        let mut current = self.parse_next(ctx)?;
-        loop {
-            if self.next_token == Some(Token::CloseParenthesis) {
-                // consume ')'
-                self.next_token = self.iter.next();
-                break;
+    fn parse_until(
+        &mut self,
+        ctx: &Context,
+        end: &Option<Token>,
+    ) -> Result<Box<Term>, ParserError> {
+        let mut current = self.parse_next(ctx, end)?;
+        match end {
+            Some(end_token) => {
+                while let Some(next_token) = &self.next_token {
+                    if next_token == end_token {
+                        // Don't consume
+                        return Ok(current);
+                    }
+                    current = Box::new(Term::App(current, self.parse_next(ctx, end)?));
+                }
+                Err(ParserError::Expected(end_token.clone()))
             }
-            current = Box::new(Term::App(current, self.parse_next(ctx)?));
+            None => {
+                while let Some(_) = &self.next_token {
+                    current = Box::new(Term::App(current, self.parse_next(ctx, end)?));
+                }
+                Ok(current)
+            }
         }
-        Ok(current)
     }
 
     fn get_next_token(&mut self) -> Result<Token, ParserError> {
@@ -476,6 +484,18 @@ mod tests {
                 Type::Bool,
                 Box::new(Term::Var(0))
             )))
+        );
+    }
+
+    #[test]
+    fn test_parser_parenthesis_error() {
+        let tokens = vec![Token::Identifier("x".to_string()), Token::CloseParenthesis];
+        let mut parser = Parser::new(tokens.into_iter());
+        let empty = Context::empty();
+        let ctx = Context::Cons(&empty, "x".to_string());
+        assert_eq!(
+            parser.parse(&ctx),
+            Err(ParserError::UnexpectedToken(Token::CloseParenthesis))
         );
     }
 }
